@@ -24,8 +24,12 @@ CAIRO_FORMAT = {
 class Viewer(object):
  
     def __init__(self, width=DEFAULT_WIDTH, height=DEFAULT_HEIGHT, depth=DEFAULT_DEPTH):
+        # self.choose_window = Gtk.Window(title="")
         self._window = Gtk.Window(title="Viewer")
-        self._painter = Gtk.DrawingArea()
+        self.box = Gtk.Box()
+        self.btn_file = Gtk.Button('Choose file')
+        self.dr_image = Gtk.DrawingArea()
+        print(dir(self.dr_image.props))
         self._width = width
         self._height = height
         self._depth = depth
@@ -38,26 +42,62 @@ class Viewer(object):
         """Init the Gui"""
         
         self._window.resize(self._width, self._height)
-        self._window.add(self._painter)
+        self._window.add(self.box)
+        self.box.add(self.btn_file)
+        self.box.add(self.dr_image)
+        self.dr_image.set_size_request(self._width,self._height)
+        self.btn_file.connect("clicked", self.on_file_clicked)
+        # self._window.add(self.dr_image)
         self._window.connect('window-state-event', self._window_state)
-
-        # a connect example 
-        # handler_id = widget.connect("event", callback, data)
-
-
-
+ 
         cursor = Gdk.Cursor.new(Gdk.CursorType.BLANK_CURSOR)
         self._window.get_root_window().set_cursor(cursor)
-        # self._window.connect("destroy", self.destroy)
-        self._window.connect("destroy", Gtk.main_quit)
+        self._window.connect("destroy", self.destroy)
  
-        self._painter.connect('draw', self._draw_on)
+        self.dr_image.connect('draw', self._draw_on)
         self._window.show_all()
         self._draw()
          
     def _window_state(self, widget, event):
         self.is_fullscreen = bool(Gdk.WindowState.FULLSCREEN & event.new_window_state)
+
+    def on_file_clicked(self, widget):
+        dialog = Gtk.FileChooserDialog("Please choose a file", self._window,
+            Gtk.FileChooserAction.OPEN,
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+             Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
+
+        self.add_filters(dialog)
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            print("Open clicked")
+            print("File selected: " + dialog.get_filename())
+            image_path = dialog.get_filename()
+            v.display_image(image_path)
+            v._update()
+        elif response == Gtk.ResponseType.CANCEL:
+            print("Cancel clicked")
+
+        dialog.destroy()
+
+    def add_filters(self, dialog):
+        filter_any = Gtk.FileFilter()
+        filter_any.set_name("Any files")
+        filter_any.add_pattern("*")
+        dialog.add_filter(filter_any)
         
+        filter_text = Gtk.FileFilter()
+        filter_text.set_name("Text files")
+        filter_text.add_mime_type("text/plain")
+        dialog.add_filter(filter_text)
+
+        filter_py = Gtk.FileFilter()
+        filter_py.set_name("Python files")
+        filter_py.add_mime_type("text/x-python")
+        dialog.add_filter(filter_py)
+
+
     @property
     def size(self):
         size = self._window.get_size()
@@ -85,7 +125,7 @@ class Viewer(object):
         self._draw()
          
     def _draw(self):
-        self._painter.queue_draw()
+        self.dr_image.queue_draw()
         self._update()
  
     def _draw_on(self, widget, ctx):
@@ -104,7 +144,7 @@ class Viewer(object):
 
         surface = cairo.ImageSurface.create_for_data(img, CAIRO_FORMAT.get(self._depth), w, h)
  
-        ctx.set_source_surface(surface, 0, 0)
+        ctx.set_source_surface(surface, -1, -1)
         ctx.paint()
          
     def _update(self):
@@ -123,13 +163,14 @@ class Viewer(object):
         except AttributeError:
             raise AttributeError("Already destroy")
  
-        self._painter = None
+        self.dr_image = None
         self._window = None
         
  
  
 if __name__ == '__main__':
     v = Viewer(depth=10)
-    v.display_image('gray_gradient_10.tiff')
+    # v.display_image('images/C46_HDR.hdr')
+    v.display_image('images/Copy_of_library_HDR.tiff')
     v._update()
     Gtk.main()
